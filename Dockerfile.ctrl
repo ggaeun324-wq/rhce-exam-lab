@@ -1,0 +1,61 @@
+# Control node 이미지
+# ansible-core 사전 설치(실제 시험과 동일), greg 콘솔 자동 로그인, 채점기(rhce-grade) 포함.
+FROM rhce-lab-base:latest
+
+RUN dnf -y install ansible-core git && dnf clean all && rm -rf /var/cache/dnf
+
+# 실제 EX294(RHEL 9) control 노드에 기본 제공되는 컬렉션을 시스템 경로에 사전 설치.
+# (RHEL 은 RPM 으로 제공하지만 Rocky 리포엔 없어, 동일 버전을 Galaxy 에서 시스템 경로에 설치)
+RUN ansible-galaxy collection install ansible.posix:1.5.1 community.general:5.4.0 \
+      -p /usr/share/ansible/collections || echo "WARN: system collection preinstall failed"
+
+# ansible.posix.firewalld 패치: 컨테이너(WSL2 커널 bridge netfilter 미지원)에서는 firewalld
+# 데몬이 뜨지 않으므로, offline(permanent) 모드로 immediate 작업을 강등 처리해 role 내
+# firewalld task 가 hard-fail 하지 않게 한다. (관리노드에는 python3-firewall 사전 설치)
+# 응시자가 mycollections 에 재설치하는 사본은 repo 의 패치된 tarball 에서 온다(gen-materials.sh).
+COPY fwpatch2.py /usr/local/bin/rhce-fwpatch
+RUN python3 /usr/local/bin/rhce-fwpatch
+
+# 시험용 repo (system dnf 동작용)
+RUN rm -f /etc/yum.repos.d/rocky*.repo /etc/yum.repos.d/*rocky*.repo || true
+RUN printf '%s\n' \
+    '[BaseOS]' \
+    'name=RHEL 9 - BaseOS' \
+    'baseurl=http://redhat.example.com/repo/BaseOS' \
+    'enabled=1' \
+    'gpgcheck=0' \
+    '' \
+    '[AppStream]' \
+    'name=RHEL 9 - AppStream' \
+    'baseurl=http://redhat.example.com/repo/AppStream' \
+    'enabled=1' \
+    'gpgcheck=0' \
+    > /etc/yum.repos.d/exam.repo
+
+# 결과 채점기
+COPY grade.sh /usr/local/bin/rhce-grade
+RUN sed -i 's/\r$//' /usr/local/bin/rhce-grade && chmod +x /usr/local/bin/rhce-grade
+
+# 문제별 초기화 스크립트
+COPY reset.sh /usr/local/bin/rhce-reset
+RUN sed -i 's/\r$//' /usr/local/bin/rhce-reset && chmod +x /usr/local/bin/rhce-reset
+
+# 전체 초기화 스크립트 (새 시험 시작)
+COPY reset-all.sh /usr/local/bin/rhce-reset-all
+RUN sed -i 's/\r$//' /usr/local/bin/rhce-reset-all && chmod +x /usr/local/bin/rhce-reset-all
+
+# control 콘솔은 greg 으로 자동 로그인
+RUN sed -i 's#/bin/bash -l#/bin/su - greg#' /etc/systemd/system/ttyd.service
+
+# 안내 배너
+RUN printf '%s\n' \
+    '================ RHCE v9 연습 (control node) ================' \
+    ' 작업 디렉토리: /home/greg/ansible (직접 생성)' \
+    ' 관리노드: node1(dev) node2(test) node3,node4(prod) node5(balancers)' \
+    ' 채점:  rhce-grade         (결과 상태를 실제 시험처럼 검사)' \
+    ' 초기화: rhce-reset <번호>  (특정 문제 다시 풀기)' \
+    ' 전체초기화: rhce-reset-all  (새 시험 시작)' \
+    '===========================================================' \
+    > /etc/motd
+
+CMD ["/sbin/init"]

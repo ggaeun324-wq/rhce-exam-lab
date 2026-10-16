@@ -1,0 +1,133 @@
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: #0b0e14; color: #cdd6f4;
+  display: flex; flex-direction: column;
+}
+header {
+  display: flex; align-items: center; gap: 16px;
+  padding: 8px 14px; background: #11151f; border-bottom: 1px solid #1e2431;
+}
+.brand { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.brand small { color: #7f849c; font-weight: 400; margin-left: 4px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #f38ba8; display: inline-block; }
+.host { color: #94e2d5; font-size: 13px; font-family: monospace; }
+.actions { margin-left: auto; display: flex; gap: 8px; }
+button.ghost {
+  background: #1a2030; color: #cdd6f4; border: 1px solid #2a3242;
+  padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 13px;
+}
+button.ghost:hover { background: #232a3d; }
+button.ghost.primary { background: #1e3a5f; border-color: #2f5a8f; color: #cfe6ff; }
+button.ghost.primary:hover { background: #274a75; }
+
+.dropdown { position: relative; display: inline-block; }
+.dropdown-menu {
+  position: absolute; right: 0; top: 110%; min-width: 260px; z-index: 50;
+  background: #11151f; border: 1px solid #2a3242; border-radius: 8px; padding: 6px;
+  display: none; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+}
+.dropdown-menu.open { display: block; }
+.dropdown-menu a { display: block; padding: 7px 10px; color: #cdd6f4; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.dropdown-menu a:hover { background: #232a3d; }
+.dd-note { color: #f38ba8; font-size: 11px; padding: 6px 10px 8px; line-height: 1.4; border-bottom: 1px solid #1e2431; margin-bottom: 4px; }
+.host.debug { color: #f9e2af; }
+
+nav#tabs { display: flex; gap: 2px; background: #0e1220; padding: 6px 10px 0; border-bottom: 1px solid #1e2431; flex-wrap: wrap; }
+.tab {
+  background: #161b2b; color: #a6adc8; border: 1px solid #1e2431; border-bottom: none;
+  padding: 7px 16px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 13px;
+}
+.tab:hover { color: #fff; }
+.tab.active { background: #0b0e14; color: #89b4fa; border-color: #313a52; font-weight: 600; }
+
+main { flex: 1; position: relative; overflow: hidden; display: flex; }
+
+/* 왼쪽 문제 도크 */
+#qdock {
+  width: 420px; flex: none; display: none; flex-direction: column;
+  background: #0d111b; border-right: 1px solid #1e2431; overflow: hidden;
+}
+#qdock.open { display: flex; }
+.qdock-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; font-weight: 700; font-size: 13px; color: #89b4fa;
+  background: #11151f; border-bottom: 1px solid #1e2431;
+}
+.qdock-tools { display: flex; gap: 4px; }
+button.mini {
+  background: #1a2030; color: #cdd6f4; border: 1px solid #2a3242;
+  width: 26px; height: 26px; border-radius: 6px; cursor: pointer; font-size: 13px; line-height: 1;
+}
+button.mini:hover { background: #232a3d; }
+.qdock-hint { color: #7f849c; font-size: 12px; margin: 8px 12px 4px; line-height: 1.4; }
+#qdock #qlist { flex: 1; overflow: auto; padding: 6px 12px 16px; }
+
+/* 드래그 바 */
+#dragbar {
+  width: 6px; flex: none; cursor: col-resize; background: #1e2431;
+}
+#dragbar:hover { background: #313a52; }
+
+/* 오른쪽 무대: 터미널 + 오버레이 패널 */
+#stage { flex: 1; position: relative; overflow: hidden; }
+#terminals { position: absolute; inset: 0; }
+#terminals iframe { width: 100%; height: 100%; border: 0; background: #0b0e14; display: none; }
+#terminals iframe.active { display: block; }
+
+.panel {
+  position: absolute; inset: 0; overflow: auto; padding: 24px 32px;
+  background: #0b0e14; display: none; z-index: 5;
+}
+.panel.active { display: block; }
+.panel h2 { color: #89b4fa; border-bottom: 2px solid #1e2431; padding-bottom: 8px; }
+.panel h3 { color: #f9e2af; margin-top: 22px; }
+.cap { color: #7f849c; font-size: 12px; margin: 8px 0 4px; font-weight: 600; }
+pre {
+  background: #11151f; border: 1px solid #1e2431; border-radius: 8px;
+  padding: 12px 14px; overflow-x: auto; color: #a6e3a1; font-size: 13px; line-height: 1.5;
+}
+table { border-collapse: collapse; margin: 8px 0; }
+th, td { border: 1px solid #2a3242; padding: 7px 14px; text-align: left; font-size: 13px; }
+th { background: #161b2b; color: #cdd6f4; }
+td { color: #bac2de; font-family: monospace; }
+.muted { color: #7f849c; font-size: 13px; }
+code { background: #1a2030; padding: 1px 6px; border-radius: 4px; color: #f5c2e7; }
+#qlist a { color: #89b4fa; display: block; padding: 4px 0; }
+
+/* --- 문제 카드 --- */
+#qlist { display: flex; flex-direction: column; gap: 8px; }
+.qcard { border: 1px solid #2a3242; border-radius: 8px; background: #11151f; }
+.qcard > summary {
+  cursor: pointer; padding: 10px 12px; font-weight: 600; font-size: 14px;
+  list-style: none; display: flex; align-items: center; gap: 10px;
+}
+.qcard > summary::-webkit-details-marker { display: none; }
+.qcard > summary:hover { background: #1a2030; }
+.qcard[open] > summary { border-bottom: 1px solid #2a3242; background: #161b28; }
+.qcard > summary .qtitle { white-space: normal; overflow-wrap: anywhere; }
+.qnum {
+  background: #89b4fa; color: #0b0e14; font-weight: 700; font-size: 12px;
+  padding: 2px 8px; border-radius: 12px; min-width: 34px; text-align: center; flex: none;
+}
+.qbody { padding: 10px 14px 14px 14px; }
+.qdesc { margin: 0 0 8px; font-size: 13px; line-height: 1.55; color: #e6e9f5; overflow-wrap: anywhere; }
+.qfile { color: #7f849c; font-size: 12px; margin-bottom: 8px; overflow-wrap: anywhere; }
+.qbody ul { margin: 0; padding-left: 18px; }
+.qbody li { margin: 3px 0; font-size: 13px; line-height: 1.5; color: #cdd6f4; overflow-wrap: anywhere; word-break: break-word; }
+.qbody code, .qfile code { overflow-wrap: anywhere; word-break: break-all; white-space: normal; }
+.term-btn.primary { background: #89b4fa; color: #0b0e14; border-color: #89b4fa; }
+
+/* 완료 체크 버튼 */
+.qcheck {
+  background: none; border: none; cursor: pointer; font-size: 15px;
+  padding: 0; line-height: 1; flex: none; filter: grayscale(0.15);
+}
+.qcheck:hover { transform: scale(1.15); }
+.qcard.done { border-color: #40c463; background: #0f1a12; }
+.qcard.done > summary .qtitle { color: #7f849c; text-decoration: line-through; }
+.qcard.done .qnum { background: #40c463; }
+.qprogress { color: #a6e3a1; font-size: 12px; align-self: center; margin-right: 4px; white-space: nowrap; }
+.qtip { margin-top: 10px; font-size: 12px; color: #7f849c; border-top: 1px dashed #2a3242; padding-top: 8px; overflow-wrap: anywhere; }
+.qtip code { color: #f9e2af; }

@@ -1,0 +1,22 @@
+# Repo + materials 서버 (redhat.example.com / content / classroom / materials / download)
+# - BaseOS/AppStream: Rocky 미러 캐싱 프록시
+# - materials: 덤프가 wget/galaxy/vault 로 참조하는 파일 생성/서빙
+FROM rhce-lab-base:latest
+
+RUN dnf -y install nginx ansible-core \
+    && dnf clean all && rm -rf /var/cache/dnf \
+    && mkdir -p /var/cache/nginx/rocky && chown -R nginx:nginx /var/cache/nginx
+
+COPY repo-nginx.conf /etc/nginx/nginx.conf
+
+# materials 생성 (CRLF 제거 후 실행)
+COPY fwpatch2.py /tmp/fwpatch2.py
+COPY gen-materials.sh /tmp/gen-materials.sh
+RUN sed -i 's/\r$//' /tmp/gen-materials.sh \
+    && bash /tmp/gen-materials.sh \
+    && rm -f /tmp/gen-materials.sh /tmp/fwpatch2.py
+
+RUN systemctl enable nginx
+
+EXPOSE 80
+CMD ["/sbin/init"]

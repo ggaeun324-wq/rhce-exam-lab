@@ -1,0 +1,133 @@
+name: rhce-lab
+
+x-sysd: &sysd
+  privileged: true
+  cgroup: host
+  tmpfs: [/run, /run/lock, /tmp]
+  restart: unless-stopped
+
+x-node-common: &node-common
+  <<: *sysd
+  image: rhce-lab-node:latest
+
+networks:
+  rhce_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.59.0/24
+
+services:
+  repo:
+    <<: *sysd
+    build: { context: ., dockerfile: Dockerfile.repo }
+    image: rhce-lab-repo:latest
+    container_name: rhce-repo
+    hostname: content.lab.example.com
+    networks:
+      rhce_net:
+        ipv4_address: 192.168.59.100
+        aliases:
+          - content
+          - content.lab.example.com
+          - classroom
+          - classroom.lab.example.com
+          - materials
+          - materials.lab.example.com
+          - utility
+          - utility.lab.example.com
+          - download
+          - redhat.example.com
+          - rhgls.domain1.example.com
+    ports:
+      - "7700:7681"   # (디버그) repo 터미널
+      - "8081:80"     # repo/materials http
+
+  foundation:
+    <<: *sysd
+    build: { context: ., dockerfile: Dockerfile.foundation }
+    image: rhce-lab-foundation:latest
+    container_name: rhce-foundation
+    hostname: foundation.lab.example.com
+    networks:
+      rhce_net:
+        ipv4_address: 192.168.59.110
+        aliases: [foundation, foundation.lab.example.com, workstation]
+    ports:
+      - "7710:7681"   # 외부 터미널 (여기서 시작)
+
+  control:
+    <<: *sysd
+    build: { context: ., dockerfile: Dockerfile.ctrl }
+    image: rhce-lab-ctrl:latest
+    container_name: rhce-control
+    hostname: control.lab.example.com
+    networks:
+      rhce_net:
+        ipv4_address: 192.168.59.130
+        aliases: [control, control.lab.example.com, ctrl.example.com]
+    ports:
+      - "7701:7681"   # control node 콘솔
+
+  node1:
+    <<: *node-common
+    container_name: rhce-node1
+    hostname: node1.lab.example.com
+    networks:
+      rhce_net:
+        ipv4_address: 192.168.59.131
+        aliases: [node1, node1.lab.example.com, node1.domain1.example.com, node1.example.com]
+    ports: ["7702:7681"]
+
+  node2:
+    <<: *node-common
+    container_name: rhce-node2
+    hostname: node2.lab.example.com
+    networks:
+      rhce_net:
+        ipv4_address: 192.168.59.132
+        aliases: [node2, node2.lab.example.com, node2.domain1.example.com, node2.example.com]
+    ports: ["7703:7681"]
+
+  node3:
+    <<: *node-common
+    container_name: rhce-node3
+    hostname: node3.lab.example.com
+    networks:
+      rhce_net:
+        ipv4_address: 192.168.59.133
+        aliases: [node3, node3.lab.example.com, node3.domain1.example.com, node3.example.com]
+    ports: ["7704:7681"]
+
+  node4:
+    <<: *node-common
+    container_name: rhce-node4
+    hostname: node4.lab.example.com
+    networks:
+      rhce_net:
+        ipv4_address: 192.168.59.134
+        aliases: [node4, node4.lab.example.com, node4.domain1.example.com, node4.example.com]
+    ports: ["7705:7681"]
+
+  node5:
+    <<: *node-common
+    container_name: rhce-node5
+    hostname: node5.lab.example.com
+    networks:
+      rhce_net:
+        ipv4_address: 192.168.59.135
+        aliases: [node5, node5.lab.example.com, node5.domain1.example.com, node5.example.com]
+    ports: ["7706:7681"]
+
+  portal:
+    image: nginx:alpine
+    container_name: rhce-portal
+    restart: unless-stopped
+    volumes:
+      - ./portal:/usr/share/nginx/html:ro
+      - ./portal/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./questions:/srv/questions:ro
+    ports:
+      - "8080:80"
+    networks:
+      - rhce_net

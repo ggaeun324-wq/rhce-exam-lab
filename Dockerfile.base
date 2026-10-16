@@ -1,0 +1,78 @@
+# RHCE(EX294 / RHEL 9) lab base image
+# Rocky Linux 9 + systemd(PID1) + sshd + ttyd(web terminal)
+# 3개 덤프 공통: 유저 greg + admin, 무암호 SSH(고정 키페어) 사전 구성
+FROM rockylinux:9
+
+ENV container=docker
+ENV LANG=C.UTF-8
+
+# 기본 도구 + sshd. wget/tar/git 은 덤프 명령(wget materials 등)에 필요하므로 포함.
+RUN dnf -y install openssh-server openssh-clients sudo passwd procps-ng iproute \
+        python3 wget tar git which hostname iputils bind-utils \
+    && dnf clean all && rm -rf /var/cache/dnf
+
+# ttyd (web terminal) - static binary
+RUN curl -fsSL -o /usr/local/bin/ttyd \
+      https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 \
+    && chmod +x /usr/local/bin/ttyd
+
+# sshd host keys + root password (foundation 기본값: redhat)
+RUN ssh-keygen -A \
+    && echo 'root:redhat' | chpasswd \
+    && sed -ri 's/^#?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config \
+    && sed -ri 's/^#?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+# WSL2 커널에서 sshd seccomp 프리앱 샌드박스가 pubkey 검증 자식을 죽이는 문제 우회.
+# 작은 LD_PRELOAD 심으로 prctl(PR_SET_SECCOMP) 만 무력화하고 sshd 에 주입.
+COPY noseccomp.c /tmp/noseccomp.c
+RUN dnf -y install gcc glibc-devel >/dev/null \
+    && mkdir -p /usr/local/lib \
+    && gcc -shared -fPIC -o /usr/local/lib/noseccomp.so /tmp/noseccomp.c -ldl \
+    && dnf -y remove gcc glibc-devel cpp >/dev/null 2>&1 || true \
+    && dnf clean all && rm -rf /var/cache/dnf /tmp/noseccomp.c \
+    && echo /usr/local/lib/noseccomp.so > /etc/ld.so.preload
+
+# exam 사용자: greg + admin 둘 다. sudo NOPASSWD, 비밀번호 redhat.
+RUN echo '%wheel ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/wheel \
+    && chmod 440 /etc/sudoers.d/wheel \
+    && for u in greg admin; do \
+         useradd -m -s /bin/bash "$u" && echo "$u:redhat" | chpasswd && usermod -aG wheel "$u"; \
+       done
+
+# 고정 SSH 키페어 bake → greg/admin 모두 any→any 무암호 (시험처럼 사전 구성)
+COPY keys/id_rsa /tmp/lab_id_rsa
+COPY keys/id_rsa.pub /tmp/lab_id_rsa.pub
+RUN for u in greg admin root; do \
+      home=$(getent passwd "$u" | cut -d: -f6); \
+      mkdir -p "$home/.ssh"; \
+      cp /tmp/lab_id_rsa "$home/.ssh/id_rsa"; \
+      cp /tmp/lab_id_rsa.pub "$home/.ssh/id_rsa.pub"; \
+      cp /tmp/lab_id_rsa.pub "$home/.ssh/authorized_keys"; \
+      printf 'Host *\n    StrictHostKeyChecking no\n    UserKnownHostsFile /dev/null\n    LogLevel ERROR\n' > "$home/.ssh/config"; \
+      chmod 700 "$home/.ssh"; chmod 600 "$home/.ssh/id_rsa" "$home/.ssh/authorized_keys" "$home/.ssh/config"; \
+      chmod 644 "$home/.ssh/id_rsa.pub"; \
+      chown -R "$u:$u" "$home/.ssh" 2>/dev/null || chown -R root:root "$home/.ssh"; \
+    done \
+    && rm -f /tmp/lab_id_rsa /tmp/lab_id_rsa.pub
+
+# ttyd systemd service: 기본은 root 로그인 셸 (파생 이미지에서 유저 지정)
+RUN printf '%s\n' \
+    '[Unit]' \
+    'Description=ttyd web terminal' \
+    'After=network.target' \
+    '[Service]' \
+    'ExecStart=/usr/local/bin/ttyd -p 7681 -W -t fontSize=16 -t "theme={\"background\":\"#0b0e14\"}" /bin/bash -l' \
+    'Restart=always' \
+    '[Install]' \
+    'WantedBy=multi-user.target' \
+    > /etc/systemd/system/ttyd.service
+
+RUN systemctl enable sshd ttyd
+
+# systemd를 컨테이너 PID1로 실행하기 위한 정리
+RUN systemctl mask systemd-logind.service getty.target console-getty.service \
+    dev-hugepages.mount sys-fs-fuse-connections.mount || true
+
+EXPOSE 22 7681
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]

@@ -1,0 +1,75 @@
+# 관리노드 (node1~5) 이미지
+# repo 서버(redhat.example.com/content)만 바라봄. LVM 실습용 루프백 VG 포함.
+FROM rhce-lab-base:latest
+
+# LVM + 웹/DB 실습 대비 최소 도구는 응시자가 설치. lvm2 는 VG 준비용으로만 설치.
+# e2fsprogs/xfsprogs: Q9 에서 ext4/xfs 포맷(mkfs.*)에 필요 — 실제 시험 노드엔 기본 설치.
+# firewalld + python3-firewall: 실제 시험 관리노드처럼 사전 설치. WSL2 커널은 bridge
+# netfilter 미지원이라 firewalld 데몬은 구동되지 않지만, python3-firewall 의 offline 모드로
+# ansible.posix.firewalld 의 permanent 작업이 동작한다(제어노드의 모듈 패치가 immediate 도 처리).
+# cronie/crontabs: Q17(cron 작업) 대비. 실제 시험 관리노드엔 cronie 가 기본 설치+crond 활성화
+# 되어 있으므로 응시자는 설치 없이 ansible.builtin.cron 모듈만 사용하면 된다.
+# httpd: dev 노드(node1) 는 Q12(webcontent) 브라우징 요건 때문에 baseline 으로 httpd 가
+# 구동돼 있어야 한다(문제는 httpd 설치를 요구하지 않음). node-baseline.sh 가 node1 에서만 기동.
+RUN dnf -y install lvm2 e2fsprogs xfsprogs firewalld python3-firewall cronie crontabs httpd && dnf clean all && rm -rf /var/cache/dnf
+RUN systemctl enable crond
+
+# Q17 cron 대상 사용자 natasha: 실제 시험 노드엔 미리 존재하는 사용자다(응시자가 만들지 않음).
+RUN useradd -m natasha 2>/dev/null || true
+
+# 컨테이너 LVM: udev 가 device-mapper 노드를 못 만들어 lvcreate 의 zeroing 이 실패한다
+# ("Failed to wipe start of new LV"). udev 동기화를 끄면 lvm 이 직접 노드를 만들어 기본
+# lvcreate(=ansible lvol 모듈)가 정상 동작한다.
+RUN sed -i '/^activation {/a\    udev_sync = 0\n    udev_rules = 0\n    verify_udev_operations = 1' /etc/lvm/lvm.conf
+
+# 기본 rocky repo 제거 후 시험용 repo (system dnf 동작용, gpgcheck=0)
+RUN rm -f /etc/yum.repos.d/rocky*.repo /etc/yum.repos.d/*rocky*.repo || true
+RUN printf '%s\n' \
+    '[BaseOS]' \
+    'name=RHEL 9 - BaseOS' \
+    'baseurl=http://redhat.example.com/repo/BaseOS' \
+    'enabled=1' \
+    'gpgcheck=0' \
+    '' \
+    '[AppStream]' \
+    'name=RHEL 9 - AppStream' \
+    'baseurl=http://redhat.example.com/repo/AppStream' \
+    'enabled=1' \
+    'gpgcheck=0' \
+    > /etc/yum.repos.d/exam.repo
+
+# 루프백 VG 'research' 부팅 시 생성
+COPY setup-research-vg.sh /usr/local/bin/setup-research-vg.sh
+RUN sed -i 's/\r$//' /usr/local/bin/setup-research-vg.sh \
+    && chmod +x /usr/local/bin/setup-research-vg.sh
+RUN printf '%s\n' \
+    '[Unit]' \
+    'Description=Setup loopback VG research for LVM practice' \
+    'After=local-fs.target' \
+    '[Service]' \
+    'Type=oneshot' \
+    'ExecStart=/usr/local/bin/setup-research-vg.sh' \
+    'RemainAfterExit=yes' \
+    '[Install]' \
+    'WantedBy=multi-user.target' \
+    > /etc/systemd/system/research-vg.service \
+    && systemctl enable research-vg.service
+
+# 노드별 baseline (dev 노드 httpd 등) 부팅 시 구성
+COPY node-baseline.sh /usr/local/bin/node-baseline.sh
+RUN sed -i 's/\r$//' /usr/local/bin/node-baseline.sh \
+    && chmod +x /usr/local/bin/node-baseline.sh
+RUN printf '%s\n' \
+    '[Unit]' \
+    'Description=Node baseline setup (dev httpd, etc.)' \
+    'After=network.target' \
+    '[Service]' \
+    'Type=oneshot' \
+    'ExecStart=/usr/local/bin/node-baseline.sh' \
+    'RemainAfterExit=yes' \
+    '[Install]' \
+    'WantedBy=multi-user.target' \
+    > /etc/systemd/system/node-baseline.service \
+    && systemctl enable node-baseline.service
+
+CMD ["/sbin/init"]

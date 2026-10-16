@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RHCE Exam — EX294 / RHEL 9</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand"><span class="dot"></span> RHCE 시험 <small>EX294 · RHEL 9</small></div>
+  <div class="host" id="hostlabel">● foundation (외부 터미널) — 여기서 <code>ssh greg@control</code> 로 시작</div>
+  <div class="actions">
+    <button data-dock class="ghost primary" id="dockbtn">📝 문제 패널</button>
+    <button data-term="foundation" class="ghost primary term-btn">🖥 외부(foundation)</button>
+    <button data-term="control" class="ghost term-btn">🧭 control node</button>
+    <button data-panel="checklist" class="ghost">✅ 시작 절차</button>
+    <button data-panel="verify" class="ghost">🔎 채점</button>
+    <button data-panel="config" class="ghost">🗺 구성도</button>
+    <div class="dropdown">
+      <button class="ghost" id="dbgbtn">🔧 디버그 ▾</button>
+      <div class="dropdown-menu" id="dbgmenu">
+        <div class="dd-note">실제 시험에는 없는 감독/디버그용 콘솔입니다. 연습은 외부→control 흐름으로 진행하세요.</div>
+        <a data-term="node1" data-label="node1 (root 콘솔·디버그)">node1 (root)</a>
+        <a data-term="node2" data-label="node2 (root 콘솔·디버그)">node2 (root)</a>
+        <a data-term="node3" data-label="node3 (root 콘솔·디버그)">node3 (root)</a>
+        <a data-term="node4" data-label="node4 (root 콘솔·디버그)">node4 (root)</a>
+        <a data-term="node5" data-label="node5 (root 콘솔·디버그)">node5 (root)</a>
+        <a data-term="repo"  data-label="repo/materials 서버 (root 콘솔·디버그)">repo (root)</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- 왼쪽: 문제 도크 -->
+  <aside id="qdock" class="open">
+    <div class="qdock-head">
+      <span>📝 RHCE v9 문제 (17개)</span>
+      <div class="qdock-tools">
+        <span id="qprogress" class="qprogress"></span>
+        <button id="qexpand" title="모두 펼치기/접기" class="mini">⇕</button>
+        <button id="qclose" title="패널 닫기" class="mini">✕</button>
+      </div>
+    </div>
+    <p class="qdock-hint">요구사항만 제공됩니다. control 터미널에서 풀고 <code>rhce-grade</code> 로 채점하세요.<br>초기화: <code>rhce-reset &lt;번호&gt;</code> (특정 문제) · <code>rhce-reset-all</code> (전체 새 시험 시작)</p>
+    <div id="qlist">불러오는 중…</div>
+  </aside>
+
+  <!-- 드래그로 폭 조절 -->
+  <div id="dragbar" title="드래그하여 폭 조절"></div>
+
+  <!-- 오른쪽: 터미널 + 오버레이 패널 -->
+  <div id="stage">
+    <div id="terminals"></div>
+
+    <section class="panel" id="panel-config">
+      <h2>서버 구성도</h2>
+      <table>
+        <thead><tr><th>역할</th><th>단축명</th><th>IP</th><th>FQDN / alias</th></tr></thead>
+        <tbody>
+          <tr><td>외부 터미널</td><td>foundation</td><td>192.168.59.120</td><td>foundation.lab.example.com</td></tr>
+          <tr><td>Control</td><td>control</td><td>192.168.59.130</td><td>control · control.lab.example.com</td></tr>
+          <tr><td>Managed</td><td>node1</td><td>192.168.59.131</td><td>node1 · node1.domain1.example.com</td></tr>
+          <tr><td>Managed</td><td>node2</td><td>192.168.59.132</td><td>node2 · node2.domain1.example.com</td></tr>
+          <tr><td>Managed</td><td>node3</td><td>192.168.59.133</td><td>node3 · node3.domain1.example.com</td></tr>
+          <tr><td>Managed</td><td>node4</td><td>192.168.59.134</td><td>node4 · node4.domain1.example.com</td></tr>
+          <tr><td>Managed</td><td>node5</td><td>192.168.59.135</td><td>node5 · node5.domain1.example.com</td></tr>
+          <tr><td>Repo/자료</td><td>repo</td><td>192.168.59.100</td><td>redhat.example.com · classroom · content</td></tr>
+        </tbody>
+      </table>
+      <p class="muted">DNS/짧은이름은 이미 해석됩니다. 패키지·자료는 <code>redhat.example.com</code>(repo) 에서만 받습니다.</p>
+      <p class="muted">계정: 콘솔은 <code>greg</code> 자동 로그인 · sudo 암호 없음 · root 암호 <code>redhat</code> · greg/admin 암호 <code>redhat</code></p>
+      <p class="muted">무암호 SSH가 이미 구성되어 있습니다(실제 시험처럼): foundation→control, control→node1~5.</p>
+    </section>
+
+    <section class="panel" id="panel-checklist">
+      <h2>시험 시작 절차 (실제 EX294 흐름)</h2>
+      <p class="muted">현재 화면은 <b>외부 터미널(foundation)</b> 입니다. 실제 시험처럼 여기서 control 노드로 접속해 작업합니다.</p>
+      <h3>1. control 노드로 접속</h3>
+      <pre>ssh greg@control        # 무암호(키 사전배포). hostname -f → control.lab.example.com</pre>
+      <h3>2. 작업 디렉토리 / 설정 (문제 1)</h3>
+      <pre>sudo dnf install -y ansible-core     # 또는 ansible
+mkdir -p ~/ansible && cd ~/ansible</pre>
+      <p class="muted">inventory 그룹(dev/test/prod/balancers/webservers)과 ansible.cfg(collections_path, roles_path, remote_user, become)를 문제 1 요구대로 직접 작성하세요.</p>
+      <h3>3. 노드 연결 확인</h3>
+      <pre>ansible all -m ping          # 5개 노드 SUCCESS (키 이미 배포됨)
+ansible all -m command -a 'id'   # become=root 확인</pre>
+      <h3>4. 문제 풀이</h3>
+      <p class="muted">왼쪽 <b>문제 패널</b>의 각 과제 요구사항을 보며, control 노드 터미널에서 플레이북을 작성·실행하세요. 자료는 <code>http://redhat.example.com/materials|material|download/</code> 에서 받습니다.</p>
+      <h3>5. 채점</h3>
+      <pre>rhce-grade        # control 노드에서 실행 → 실제 시스템 상태로 자동 채점</pre>
+      <p class="muted">정답 텍스트를 맞췄는지가 아니라, <b>플레이북 실행 결과(실제 상태)</b>를 검사합니다.</p>
+    </section>
+
+    <section class="panel" id="panel-verify">
+      <h2>🔎 채점 (outcome-based)</h2>
+      <p>이 랩은 <b>여러분이 입력한 명령/플레이북을 실제로 실행</b>하고, 그 결과로 바뀐 시스템 상태를 검사합니다.
+         (repo 설정 여부, 패키지 설치 여부, 파일·유저·크론 생성 여부 등)</p>
+      <p>control 노드 터미널에서:</p>
+      <pre>rhce-grade</pre>
+      <p class="muted">각 문제에 대해 <b>[PASS]/[FAIL]/[SKIP]</b> 과 합계를 출력합니다.
+         SKIP은 컨테이너 커널 제약(SELinux enforcing, 실디스크 LVM 등)으로 실검증이 불가한 항목입니다.</p>
+      <h3>개별 문제만 채점</h3>
+      <pre>rhce-grade 1      # 문제 1만
+rhce-grade 8 17   # 문제 8, 17만</pre>
+      <h3>🔄 초기화 (다시 풀기)</h3>
+      <pre>rhce-reset 17     # 특정 문제만 처음 상태로
+rhce-reset 7 8    # 여러 문제 한번에
+rhce-reset-all    # 전체 초기화(새 시험 시작)</pre>
+      <p class="muted"><code>rhce-reset &lt;번호&gt;</code> 는 해당 문제의 산출물(플레이북·노드 상태)만 되돌립니다.
+         <code>rhce-reset-all</code> 은 <b>작업 디렉토리 전체(플레이북·인벤토리·스왑파일 등)를 비우고</b> 모든 노드를 처음 상태로 되돌려 새 시험을 시작합니다. (<code>-y</code> 로 확인 생략)</p>
+    </section>
+  </div>
+</main>
+
+<script src="questions.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
